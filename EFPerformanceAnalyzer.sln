@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{01578124-0EAF-4D26-A00A-5E3E13FBEC90}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFPerformanceAnalyzer.Core", "src\EFPerformanceAnalyzer.Core\EFPerformanceAnalyzer.Core.csproj", "{1C77E603-6856-4FBB-BE8D-01C826D7BCE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFPerformanceAnalyzer.Api", "src\EFPerformanceAnalyzer.Api\EFPerformanceAnalyzer.Api.csproj", "{0F5CC054-5505-4A9F-AA83-7608256EB5C0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1C77E603-6856-4FBB-BE8D-01C826D7BCE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C77E603-6856-4FBB-BE8D-01C826D7BCE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C77E603-6856-4FBB-BE8D-01C826D7BCE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C77E603-6856-4FBB-BE8D-01C826D7BCE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F5CC054-5505-4A9F-AA83-7608256EB5C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F5CC054-5505-4A9F-AA83-7608256EB5C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F5CC054-5505-4A9F-AA83-7608256EB5C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F5CC054-5505-4A9F-AA83-7608256EB5C0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1C77E603-6856-4FBB-BE8D-01C826D7BCE8} = {01578124-0EAF-4D26-A00A-5E3E13FBEC90}
+		{0F5CC054-5505-4A9F-AA83-7608256EB5C0} = {01578124-0EAF-4D26-A00A-5E3E13FBEC90}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EF Performance Analyzer</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e7c72'/%3E%3Cpath d='M10 10l6 6-6 6' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cline x1='19' y1='22' x2='24' y2='22' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <div class="mark" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 32 32">
+          <path d="M10 10l6 6-6 6" stroke="white" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="19" y1="22" x2="24" y2="22" stroke="white" stroke-width="3.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="title-block">
+        <h1>EF Performance Analyzer <span class="tagline">15 detectors</span></h1>
+        <p class="dek">
+          Point it at any C#/.NET project folder — no build, no restore, no IDE plugin.
+          It reads the source off disk and tells you which lines are going to cost you.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ============ SCAN PANEL ============ -->
+    <section class="panel" id="scanPanel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="tabPath" role="tab" aria-selected="true">Scan a folder</button>
+        <button class="tab" id="tabFolder" role="tab" aria-selected="false">Upload a folder</button>
+        <button class="tab" id="tabUpload" role="tab" aria-selected="false">Upload a .zip</button>
+        <button class="tab" id="tabHistory" role="tab" aria-selected="false">History</button>
+      </div>
+
+      <div class="tabpane" id="panePath">
+        <label for="targetPath">Project path on this machine</label>
+        <div class="row">
+          <input type="text" id="targetPath" spellcheck="false"
+                 placeholder="C:\TechProcess\data base\SchoolFinder" />
+          <button class="btn" id="scanBtn">Analyze</button>
+        </div>
+        <p class="hint">
+          Must sit under a configured <code>ScanSettings:AllowedRoots</code> entry — that allowlist is a
+          security boundary, since this endpoint reads whatever <code>.cs</code> files it finds.
+        </p>
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+
+      <div class="tabpane hidden" id="paneFolder">
+        <label for="folderInput">Upload a project folder straight from your browser — no zip step</label>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose or drop a project folder">
+          <input type="file" id="folderInput" webkitdirectory directory multiple hidden />
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+          </svg>
+          <p class="dz-title">Drop a project folder here, or <span class="dz-link">browse</span></p>
+          <p class="dz-sub">Only <code>.cs</code> files are sent — <code>bin</code>, <code>obj</code>, <code>node_modules</code>, <code>.git</code>, <code>.vs</code> are skipped automatically.</p>
+        </div>
+        <div class="folder-summary hidden" id="folderSummary">
+          <span id="folderSummaryText"></span>
+          <button class="btn" id="folderScanBtn">Analyze</button>
+          <button class="btn secondary" id="folderClearBtn">Clear</button>
+        </div>
+        <div class="progress hidden" id="uploadProgress"><div class="progress-bar" id="uploadProgressBar"></div></div>
+      </div>
+
+      <div class="tabpane hidden" id="paneUpload">
+        <label for="zipFile">Zip of a project anywhere (extracted, scanned, then deleted)</label>
+        <div class="row">
+          <input type="file" id="zipFile" accept=".zip" />
+          <button class="btn" id="uploadBtn">Analyze</button>
+        </div>
+        <p class="hint">Use this for a project that isn't on this machine or falls outside the allowlist.</p>
+      </div>
+
+      <div class="tabpane hidden" id="paneHistory">
+        <div class="trend" id="trendChart"></div>
+
+        <div class="row">
+          <select id="runSelect"><option>Loading…</option></select>
+          <button class="btn secondary" id="loadRunBtn">Open</button>
+        </div>
+        <p class="hint">Every scan is persisted, so you can compare a run before and after a fix.</p>
+
+        <div class="compare-block">
+          <label>Compare two runs — what's new, what got fixed</label>
+          <div class="row">
+            <select id="baselineSelect"></select>
+            <span class="arrow-sep">&rarr;</span>
+            <select id="currentSelect"></select>
+            <button class="btn secondary" id="compareBtn">Compare</button>
+          </div>
+          <div id="diffResult"></div>
+        </div>
+      </div>
+
+      <div class="status hidden" id="status"></div>
+    </section>
+
+    <!-- ============ RESULTS ============ -->
+    <section id="results" class="hidden">
+      <div class="statgrid" id="statgrid"></div>
+
+      <div class="split">
+        <!-- Hotspots -->
+        <aside class="panel hotspots">
+          <h2>Hotspots</h2>
+          <p class="sub">Files ranked by weighted severity — start at the top.</p>
+          <ul class="hotspot-list" id="hotspotList"></ul>
+        </aside>
+
+        <!-- Findings -->
+        <div class="panel findings">
+          <div class="findings-head">
+            <h2>Findings</h2>
+            <div class="filters">
+              <label class="chk"><input type="checkbox" class="sev" value="Critical" checked /> <span class="sev-dot critical"></span>Critical</label>
+              <label class="chk"><input type="checkbox" class="sev" value="Warning" checked /> <span class="sev-dot warning"></span>Warning</label>
+              <label class="chk"><input type="checkbox" class="sev" value="Info" checked /> <span class="sev-dot info"></span>Info</label>
+            </div>
+            <div class="export-links" id="exportLinks">
+              <span class="sub" style="margin:0">Export:</span>
+              <a id="exportSarif" href="#" download>SARIF</a>
+              <a id="exportCsv" href="#" download>CSV</a>
+              <a id="exportMd" href="#" download>Markdown</a>
+            </div>
+          </div>
+          <div class="row filter-row">
+            <select id="categoryFilter"><option value="">All categories</option></select>
+            <input type="search" id="textFilter" placeholder="Filter by file or member…" spellcheck="false" />
+          </div>
+          <p class="sub" id="findingCount"></p>
+          <div id="findingList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>
+      Findings are a prioritized worklist, not a verdict — the engine reads syntax only (no compilation),
+      so it's deliberately sensitive and will occasionally flag something intentional. Silence a specific
+      line with <code>// ef-analyzer-ignore</code> or <code>// ef-analyzer-ignore: MissingAsNoTracking</code>,
+      placed trailing the line or alone on the line above it.
+      <a href="/swagger" target="_blank" rel="noopener">API docs</a>
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
