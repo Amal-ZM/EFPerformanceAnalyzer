@@ -47,10 +47,12 @@ TypeScript, or SQL files.
 
 ```
 src/EFPerformanceAnalyzer.Core       Roslyn-based scanning engine (no external dependencies at scan time)
-src/EFPerformanceAnalyzer.Api        ASP.NET Core 8 Web API + EF Core/SQL Server persistence of scan history
+src/EFPerformanceAnalyzer.Api        ASP.NET Core 8 Web API + EF Core persistence of scan history (SQL Server or Postgres)
 src/EFPerformanceAnalyzer.Api/wwwroot  The dashboard: three static files, no build step
 samples/SampleTarget                 An EF Core project with one deliberate instance of every anti-pattern
 samples/SuppressionTest              A minimal project demonstrating ef-analyzer-ignore and the run diff
+Dockerfile                           Multi-stage build for deployment (see "Deploying it" below)
+render.yaml                          Render Blueprint: provisions the free web service + Postgres together
 ```
 
 The dashboard is deliberately plain HTML/CSS/JS served by the API itself, so `dotnet run` starts
@@ -114,9 +116,45 @@ a filesystem path over HTTP and reads whatever `.cs` files it finds there — wi
 is an arbitrary file-disclosure primitive. Requests for a `targetPath` outside every configured root
 are rejected with 400, regardless of `..` traversal tricks (the path is resolved to its full form
 before the check). If you deploy this beyond localhost, tighten `AllowedRoots` to only the
-directories you intend to let it read, and put the API behind authentication — there is none built in.
+directories you intend to let it read (or empty it entirely — a remote container's filesystem has no
+paths worth scanning anyway, see below) and turn on `BASIC_AUTH_USERNAME`/`BASIC_AUTH_PASSWORD`.
 
 `MaxFilesPerScan` and `ScanTimeoutSeconds` bound the cost of a single scan request.
+
+## Deploying it (Render, free tier)
+
+Local path scanning obviously doesn't make sense once this runs on a server that isn't your own
+machine — deployed, it's meant to be used through **Upload a folder** or **Upload a .zip**.
+`appsettings.Production.json` reflects that: `AllowedRoots` is empty (path-based scanning refuses
+every request, fail-closed) and upload/file-count limits are turned down to fit the free tier's
+512 MB RAM.
+
+The repo is set up for Render's **Blueprint** flow, which provisions both pieces from one file
+([render.yaml](render.yaml)) instead of clicking through settings by hand:
+
+1. Push this repo to your own GitHub account (already done if you're reading this from there).
+2. In the [Render dashboard](https://dashboard.render.com), **New → Blueprint**, and point it at
+   the repo. Render reads `render.yaml` and provisions two resources together:
+   - a **free Postgres database**
+   - a **free web service**, built from [Dockerfile](Dockerfile), with `DATABASE_URL` wired
+     straight from the database resource — nothing to copy-paste
+3. Render also generates a random `BASIC_AUTH_PASSWORD` for you (username defaults to `admin`,
+   change it in the service's Environment tab if you want). **Open the service's Environment tab
+   and copy that generated password before you share the URL with anyone** — it's the only thing
+   stopping a stranger who finds the link from uploading code and browsing your scan history.
+4. First deploy takes a few minutes (Docker build + Postgres provisioning). After that, every push
+   to your default branch redeploys automatically.
+
+Two free-tier realities worth knowing going in: the instance **spins down after 15 minutes idle**
+and takes ~30–50s to wake back up on the next request (nothing is wrong — that's the free plan, not
+a bug), and Render's edge proxy has its own request timeout well under our own `ScanTimeoutSeconds`
+default of 1800s, which is why Production dials that down to 80s — a genuinely huge codebase may
+need to be scanned locally instead.
+
+Why Postgres and not SQL Server: free managed SQL Server isn't offered by Render (or most PaaS
+hosts) the way free Postgres is. `Database:Provider` in config picks the EF Core provider —
+`SqlServer` (default, unchanged local dev flow) or `Postgres` — and `Program.cs` translates
+Render's `DATABASE_URL` (a `postgres://` URI) into the connection string Npgsql expects.
 
 ## API contract
 

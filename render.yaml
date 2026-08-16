@@ -1,0 +1,32 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: Render dashboard -> New -> Blueprint -> point at this repo. Render reads this file,
+# provisions the free Postgres database and the web service, and wires the connection string and
+# a generated Basic Auth password between them automatically — no manual copy-pasting of secrets.
+
+databases:
+  - name: ef-performance-analyzer-db
+    plan: free
+    databaseName: efanalyzer
+    user: efanalyzer
+
+services:
+  - type: web
+    name: ef-performance-analyzer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Database__Provider
+        value: Postgres
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ef-performance-analyzer-db
+          property: connectionString
+      - key: BASIC_AUTH_USERNAME
+        value: admin
+      - key: BASIC_AUTH_PASSWORD
+        generateValue: true
