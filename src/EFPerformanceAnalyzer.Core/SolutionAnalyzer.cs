@@ -31,7 +31,13 @@ public sealed class SolutionAnalyzer
         new SyncOverAsyncDetector(),
         new AsyncVoidDetector(),
         new StringConcatInLoopDetector(),
-        new BlockingCallInAsyncMethodDetector()
+        new BlockingCallInAsyncMethodDetector(),
+
+        // Correctness and security: bugs and vulnerabilities, not just cost
+        new RawSqlInjectionRiskDetector(),
+        new StringBasedIncludeDetector(),
+        new MissingCancellationTokenDetector(),
+        new DbContextSingletonLifetimeDetector()
     ];
 
     public AnalysisReport Analyze(string targetDirectory, int maxFiles = int.MaxValue)

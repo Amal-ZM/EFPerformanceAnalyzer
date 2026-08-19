@@ -55,7 +55,15 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
-        db.Database.EnsureCreated();
+        // SQL Server (local dev, where the schema actually evolves as features get added) gets
+        // real migrations, tracked in source and applied in order. Postgres (Render's free tier —
+        // a single database provisioned once, not hand-edited) stays on EnsureCreated: EF Core
+        // migrations for a second provider on the same DbContext need a separate migrations
+        // assembly, which is real complexity this personal-scale deployment doesn't earn yet.
+        if (databaseProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
     }
     catch (Exception ex)
     {
@@ -84,6 +92,14 @@ if (!string.IsNullOrEmpty(basicAuthUser) && !string.IsNullOrEmpty(basicAuthPass)
 {
     app.Use(async (context, next) =>
     {
+        // The health check has to stay reachable without credentials — Render's own prober sends
+        // none, and a 401 there reads as "the service is down" and triggers a restart loop.
+        if (context.Request.Path == "/healthz")
+        {
+            await next();
+            return;
+        }
+
         var header = context.Request.Headers.Authorization.ToString();
         if (header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
@@ -112,6 +128,11 @@ app.UseStaticFiles();
 
 app.UseAuthorization();
 app.MapControllers();
+
+// Checks the database is actually reachable, not just that the process is running — a DB outage
+// is exactly the failure mode a host's health prober exists to catch.
+app.MapGet("/healthz", async (AnalyzerDbContext db) =>
+    await db.Database.CanConnectAsync() ? Results.Ok(new { status = "healthy" }) : Results.StatusCode(503));
 
 app.Run();
 

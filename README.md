@@ -1,8 +1,8 @@
 # EF Performance Analyzer
 
 A .NET Core 8 Web API + SQL Server tool with a browser dashboard that scans any C# codebase on
-disk and reports fifteen categories of performance anti-pattern, ranked by severity and pinned to
-an exact file and line.
+disk and reports nineteen categories of performance, correctness, and security anti-pattern,
+ranked by severity and pinned to an exact file and line.
 
 **EF-model-aware** — need a DbContext to say anything:
 
@@ -28,6 +28,18 @@ an exact file and line.
 - **String `+=` in a loop** — reallocates and copies the accumulated string every pass
 - **Blocking call in an async method** — `Thread.Sleep` parks the thread instead of yielding it
 
+**Correctness and security** — bugs and vulnerabilities, not just cost:
+
+- **Raw SQL injection risk** — `FromSqlRaw`/`ExecuteSqlRaw` built from a `$"..."` interpolated
+  string or concatenation, where `FromSqlInterpolated`/`ExecuteSqlInterpolated` would parameterize
+  automatically
+- **String-based `Include`** — `.Include("NavName")` isn't refactor-safe; a rename silently stops
+  eager-loading instead of failing to compile
+- **Missing `CancellationToken`** — an async EF call inside a method that already has a token
+  available, but doesn't forward it, so cancelling the request doesn't stop the in-flight query
+- **`DbContext` registered as a singleton** — not thread-safe, breaks under concurrent requests in
+  ways that don't show up until production traffic
+
 It scans **any** C#/.NET codebase directly off disk — it does not require the target to build,
 restore its NuGet packages, or use a specific project layout. It only needs `.cs` files.
 This is why the engine parses syntax trees directly (Roslyn, no MSBuild/semantic compilation)
@@ -35,10 +47,11 @@ rather than opening the target as a loaded solution.
 
 ## What it does and doesn't understand
 
-The eleven EF-specific detectors key off EF Core / C# APIs — `AsNoTracking()`, `Include()`,
-`SaveChanges()`, `DbSet<T>`. Those don't exist in other ORMs, so pointing the tool at a Dapper or
-raw-ADO.NET codebase correctly reports zero DbContexts and zero findings from that group. The four
-general-throughput detectors have no such dependency and apply to any C# file.
+Most detectors key off EF Core / C# APIs — `AsNoTracking()`, `Include()`, `SaveChanges()`,
+`DbSet<T>`, `FromSqlRaw`. Those don't exist in other ORMs, so pointing the tool at a Dapper or
+raw-ADO.NET codebase correctly reports zero DbContexts and zero findings from those groups. The
+general-throughput detectors (sync-over-async, `async void`, string concatenation, blocking calls)
+have no such dependency and apply to any C# file, EF or not.
 
 It is not a multi-language linter — it reads `.cs` only, and knows nothing about JavaScript,
 TypeScript, or SQL files.
@@ -70,9 +83,17 @@ dotnet run --launch-profile http
 ```
 
 Then open **http://localhost:5012** for the dashboard (Swagger is at `/swagger`). On startup the app
-calls `Database.EnsureCreated()` against the connection string in `appsettings.json`
-(`ConnectionStrings:DefaultConnection`) — no migrations step needed for the simple two-table schema
-(`AnalysisRuns`, `Findings`).
+calls `Database.Migrate()` against the connection string in `appsettings.json`
+(`ConnectionStrings:DefaultConnection`), applying [Migrations](src/EFPerformanceAnalyzer.Api/Migrations)
+in order — no manual schema setup, and changing a persisted entity later means adding a real
+migration (`dotnet ef migrations add <Name>`) rather than hand-editing the database.
+`GET /healthz` reports whether the database is actually reachable, not just whether the process
+is running.
+
+Postgres (used on Render — see **Deploying it** below) stays on `EnsureCreated()` rather than
+migrations: EF Core migrations for a second provider on the same `DbContext` need a separate
+migrations assembly, real complexity a single, freshly-provisioned free-tier database doesn't earn
+yet. If that database's schema needs to change later, this is the first place to revisit.
 
 ### Using the dashboard
 
@@ -280,6 +301,10 @@ EF model — but carry their own deliberate precision tradeoffs:
 
 In practice this trades perfect precision for the ability to scan anything on disk instantly. Treat
 findings as a prioritized worklist, not a verdict — [samples/SampleTarget](samples/SampleTarget)
-holds one deliberate instance of all fifteen patterns plus several deliberately-correct methods for
-contrast, and can be re-scanned to sanity-check any detector change: a clean run reports exactly
-fifteen categories and never flags the correct methods.
+holds one deliberate instance of all nineteen patterns plus several deliberately-correct methods
+for contrast, and can be re-scanned to sanity-check any detector change: a clean run reports
+exactly nineteen categories and never flags the correct methods.
+
+## License
+
+[MIT](LICENSE) — do what you want with it.

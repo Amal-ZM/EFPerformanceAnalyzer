@@ -21,5 +21,11 @@ public enum FindingCategory
     SyncOverAsync,
     AsyncVoid,
     StringConcatInLoop,
-    BlockingCallInAsyncMethod
+    BlockingCallInAsyncMethod,
+
+    // Correctness and security detectors
+    RawSqlInjectionRisk,
+    StringBasedInclude,
+    MissingCancellationToken,
+    DbContextSingletonLifetime
 }

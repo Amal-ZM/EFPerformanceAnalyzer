@@ -20,7 +20,11 @@ const CATEGORIES = {
   SyncOverAsync:            ["Blocking on async", "Holds a thread-pool thread; can deadlock."],
   AsyncVoid:                ["async void", "Caller can't await it or catch its exceptions."],
   StringConcatInLoop:       ["String += in a loop", "Reallocates and copies the whole string each pass."],
-  BlockingCallInAsyncMethod:["Blocking call in async", "Thread.Sleep parks the thread instead of yielding it."]
+  BlockingCallInAsyncMethod:["Blocking call in async", "Thread.Sleep parks the thread instead of yielding it."],
+  RawSqlInjectionRisk:      ["Raw SQL injection risk", "Interpolated/concatenated SQL passed to FromSqlRaw or ExecuteSqlRaw."],
+  StringBasedInclude:       ["String-based Include", "A rename won't be caught at compile time — silently stops eager-loading."],
+  MissingCancellationToken: ["Missing CancellationToken", "An available token isn't forwarded to the async call."],
+  DbContextSingletonLifetime:["DbContext as singleton", "Not thread-safe — breaks under concurrent requests."]
 };
 
 const SEVERITY_WEIGHT = { Critical: 10, Warning: 3, Info: 1 };
